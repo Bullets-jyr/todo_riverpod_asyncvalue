@@ -1,103 +1,74 @@
+import 'dart:ffi';
+
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:todo_riverpod_asyncvalue/models/todo_model.dart';
-import 'package:todo_riverpod_asyncvalue/pages/providers/todo_list/todo_list_state.dart';
 import 'package:todo_riverpod_asyncvalue/repositories/providers/todos_repository_provider.dart';
 
 part 'todo_list_provider.g.dart';
 
 @riverpod
 class TodoList extends _$TodoList {
-  List<Todo> _todos = [];
-
   @override
-  TodoListState build() {
-    return const TodoListStateInitial();
+  FutureOr<List<Todo>> build() async {
+    print('[todoListProvider] initialized');
+    ref.onDispose(() {
+      print('[todoListProvider] disposed');
+    });
+    return _getTodos();
   }
 
-  Future<void> getTodos() async {
-    state = const TodoListStateLoading();
-
-    try {
-      _todos = await ref.read(todosRepositoryProvider).getTodos();
-
-      state = TodoListStateSuccess(todos: _todos);
-    } catch (e) {
-      state = TodoListStateFailure(error: e.toString());
-    }
+  Future<List<Todo>> _getTodos() {
+    return ref.read(todosRepositoryProvider).getTodos();
   }
 
   Future<void> addTodo(String desc) async {
-    state = const TodoListStateLoading();
+    state = const AsyncLoading();
 
-    try {
+    state = await AsyncValue.guard(() async {
       final newTodo = Todo.add(desc: desc);
 
       await ref.read(todosRepositoryProvider).addTodo(todo: newTodo);
 
-      _todos = [..._todos, newTodo];
-
-      state = TodoListStateSuccess(todos: _todos);
-    } catch (e) {
-      state = TodoListStateFailure(error: e.toString());
-    }
+      return [...state.value!, newTodo];
+    });
   }
 
   Future<void> editTodo(String id, String desc) async {
-    state = const TodoListStateLoading();
+    state = const AsyncLoading();
 
-    try {
+    state = await AsyncValue.guard(() async {
       await ref.read(todosRepositoryProvider).editTodo(id: id, desc: desc);
 
-      _todos = [
-        for (final todo in _todos)
+      return [
+        for (final todo in state.value!)
           if (todo.id == id) todo.copyWith(desc: desc) else todo
       ];
-
-      state = TodoListStateSuccess(todos: _todos);
-    } catch (e) {
-      state = TodoListStateFailure(error: e.toString());
-    }
+    });
   }
 
   Future<void> toggleTodo(String id) async {
-    state = const TodoListStateLoading();
+    state = const AsyncLoading();
 
-    try {
+    state = await AsyncValue.guard(() async {
       await ref.read(todosRepositoryProvider).toggleTodo(id: id);
 
-      _todos = [
-        for (final todo in _todos)
+      return [
+        for (final todo in state.value!)
           if (todo.id == id) todo.copyWith(completed: !todo.completed) else todo
       ];
-
-      state = TodoListStateSuccess(todos: _todos);
-    } catch (e) {
-      state = TodoListStateFailure(error: e.toString());
-    }
-    // state = [
-    //   for (final todo in state)
-    //     if (todo.id == id) todo.copyWith(completed: !todo.completed) else todo
-    // ];
+    });
   }
 
   Future<void> removeTodo(String id) async {
-    state = const TodoListStateLoading();
+    state = const AsyncLoading();
 
-    try {
+    state = await AsyncValue.guard(() async {
       await ref.read(todosRepositoryProvider).removeTodo(id: id);
 
-      _todos = [
-        for (final todo in _todos)
+      return [
+        for (final todo in state.value!)
           if (todo.id != id) todo
       ];
-
-      state = TodoListStateSuccess(todos: _todos);
-    } catch (e) {
-      state = TodoListStateFailure(error: e.toString());
-    }
-    // state = [
-    //   for (final todo in state)
-    //     if (todo.id != id) todo
-    // ];
+    });
   }
 }
