@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:todo_riverpod_asyncvalue/models/todo_model.dart';
 import 'package:todo_riverpod_asyncvalue/pages/providers/todo_list/todo_list_provider.dart';
 
-import '../providers/todo_list/todo_list_state.dart';
-
 class NewTodo extends ConsumerStatefulWidget {
   const NewTodo({super.key});
 

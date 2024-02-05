@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:todo_riverpod_asyncvalue/pages/providers/todo_item/todo_item_provider.dart';
 import 'package:todo_riverpod_asyncvalue/pages/providers/todo_list/todo_list_provider.dart';
-import 'package:todo_riverpod_asyncvalue/pages/providers/todo_list/todo_list_state.dart';
 import 'package:todo_riverpod_asyncvalue/pages/widgets/todo_item.dart';
 
 import '../../models/todo_model.dart';
@@ -18,14 +17,6 @@ class ShowTodos extends ConsumerStatefulWidget {
 
 class _ShowTodosState extends ConsumerState<ShowTodos> {
   Widget prevTodosWidget = const SizedBox.shrink();
-
-  @override
-  void initState() {
-    super.initState();
-    Future.delayed(Duration.zero, () {
-      ref.read(todoListProvider.notifier).getTodos();
-    });
-  }
 
   List<Todo> filterTodos(List<Todo> allTodos) {
     final filter = ref.watch(todoFilterProvider);
@@ -51,11 +42,11 @@ class _ShowTodosState extends ConsumerState<ShowTodos> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<TodoListState>(
+    ref.listen<AsyncValue<List<Todo>>>(
       todoListProvider,
       (previous, next) {
-        switch (next) {
-          case TodoListStateFailure(error: String error):
+        next.whenOrNull(error: (e, st) {
+          if (!next.isLoading) {
             showDialog(
               context: context,
               builder: (context) {
@@ -65,50 +56,21 @@ class _ShowTodosState extends ConsumerState<ShowTodos> {
                     textAlign: TextAlign.center,
                   ),
                   content: Text(
-                    error,
+                    e.toString(),
                     textAlign: TextAlign.center,
                   ),
                 );
               },
             );
-          case _:
-        }
+          }
+        });
       },
     );
 
     final todoListState = ref.watch(todoListProvider);
 
-    switch (todoListState) {
-      case TodoListStateInitial():
-        return const SizedBox.shrink();
-      case TodoListStateLoading():
-        return prevTodosWidget;
-      case TodoListStateFailure(error: var error)
-          when prevTodosWidget is SizedBox:
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                error,
-                style: const TextStyle(fontSize: 20),
-              ),
-              const SizedBox(height: 20),
-              OutlinedButton(
-                onPressed: () {
-                  ref.read(todoListProvider.notifier).getTodos();
-                },
-                child: const Text(
-                  'Please Retry!',
-                  style: TextStyle(fontSize: 20),
-                ),
-              ),
-            ],
-          ),
-        );
-      case TodoListStateFailure(error: _):
-        return prevTodosWidget;
-      case TodoListStateSuccess(todos: var allTodos):
+    return todoListState.when(
+      data: (List<Todo> allTodos) {
         // final filteredTodos = ref.watch(filteredTodosProvider);
         final filteredTodos = filterTodos(allTodos);
 
@@ -132,6 +94,36 @@ class _ShowTodosState extends ConsumerState<ShowTodos> {
           },
         );
         return prevTodosWidget;
-    }
+      },
+      error: (error, _) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                error.toString(),
+                style: const TextStyle(fontSize: 20),
+              ),
+              const SizedBox(height: 20),
+              OutlinedButton(
+                onPressed: () {
+                  ref.invalidate(todoListProvider);
+                },
+                child: const Text(
+                  'Please Retry!',
+                  style: TextStyle(fontSize: 20),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      loading: () {
+        return prevTodosWidget;
+        // return const Center(
+        //   child: CircularProgressIndicator(),
+        // );
+      },
+    );
   }
 }
